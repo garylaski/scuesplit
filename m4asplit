@@ -12,8 +12,14 @@ fi
 if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then 
 	echo "input a path to an cue file"
 fi
+convert_to_ms() {
+	prefix=$(echo $1 | head -c 5)
+	frames=$(echo $1 | tail -c 3)
+	frames=${frames##0}
+	frames=$(($frames * 100 / 75))
+	printf $prefix.$frames
+}
 #Iterate over cue file
-prev_time=0
 while IFS= read -r line || [ -n "$line" ]; do
 	trim=${line#${line%%[![:space:]]*}}
 	case $trim in
@@ -24,11 +30,26 @@ while IFS= read -r line || [ -n "$line" ]; do
 		TITLE\ *)
 			title=${trim##TITLE\ }
 			continue;;
-		INDEX\ *)
-			echo "$track_num - $title"
+		INDEX\ 00*)
+			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
+			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+			index=0
+			continue;;
+		INDEX\ 01*)
+			end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
+			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+			start_time=$end_time
+			this_track_num=$track_num
+			this_performer=$performer
+			this_title=$title
+			index=1
 			continue;;
 		PERFORMER\ *)
 			performer=${trim##PERFORMER\ }
 			continue;;
 	esac
 done < "$2"
+end_time=$(ffprobe -i $1 -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
+ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+
+
