@@ -7,3 +7,4 @@ m4asplit audio.m4a cuefile.cue
 ```
 
 ## Dependency
+`ffmpeg`
