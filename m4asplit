@@ -1,3 +1,34 @@
 #!/bin/sh
 #Check if ffmpeg is available
-[ -z $(command -v ffmpeg) ] && echo "ffmepg is not installed" ; exit 1
+if [ ! -x $(command -v ffmpeg) ]; then
+	echo "ffmpeg is not installed"
+	exit 1
+fi
+#ensure first param is m4a
+if [ ! -r "$1" ] && [ "$1" != "*.m4a" ]; then 
+	echo "input a path to an m4a file"
+fi
+#ensure second param is cue
+if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then 
+	echo "input a path to an cue file"
+fi
+#Iterate over cue file
+prev_time=0
+while IFS= read -r line || [ -n "$line" ]; do
+	trim=${line#${line%%[![:space:]]*}}
+	case $trim in
+		TRACK*AUDIO)
+			track_num=${trim##TRACK\ }
+			track_num=${track_num%%AUDIO}
+			continue;;
+		TITLE\ *)
+			title=${trim##TITLE\ }
+			continue;;
+		INDEX\ *)
+			echo "$track_num - $title"
+			continue;;
+		PERFORMER\ *)
+			performer=${trim##PERFORMER\ }
+			continue;;
+	esac
+done < "$2"
