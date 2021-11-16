@@ -1,13 +1,16 @@
 #!/bin/sh
 
 #Check if ffmpeg is in $PATH and executable
-[ -x $(command -v ffmpeg) ] || echo "ffmpeg is not installed" || exit 1
+[ ! -x $(command -v ffmpeg) ] && echo "ffmpeg is not installed" && exit 1
 
 #ensure first param is a readable file
-[ -r "$1" ] || echo "input a path to a readable file" || exit 1
+[ ! -r "$1" ] && echo "input a path to a readable file" && exit 1
 
 #ensure second param is cue
-[ -r "$2" ] && [ "$2" == "*.cue" ] || echo "input a path to an cue file" || exit 1
+if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then
+	echo "input a path to an cue file"
+	exit 1
+fi
 
 #extract audio file extension 
 ext="${1##*.}"
