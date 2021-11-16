@@ -1,14 +1,15 @@
 #!/bin/sh
-#Check if ffmpeg is available
+#Check if ffmpeg is in $PATH and executable
 if [ ! -x $(command -v ffmpeg) ]; then
 	echo "ffmpeg is not installed"
 	exit 1
 fi
-#ensure first param is m4a
+#ensure first param is a readable file
 if [ ! -r "$1" ]; then 
 	echo "input a path to a readable file"
 	exit 1
 fi
+#extract audio file extension 
 audio=$(basename $1)
 ext="${audio##*.}"
 #ensure second param is cue
@@ -16,6 +17,7 @@ if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then
 	echo "input a path to an cue file"
 	exit 1
 fi
+#since cue files use HH:MM:FF where FF is frames out of 75, conversion to HH:MM.SS that ffmpeg needs
 convert_to_ms() {
 	prefix=$(echo $1 | head -c 5)
 	frames=$(echo $1 | tail -c 3)
@@ -25,7 +27,9 @@ convert_to_ms() {
 }
 #Iterate over cue file
 while IFS= read -r line || [ -n "$line" ]; do
+	#Remove leading whitespace
 	trim=${line#${line%%[![:space:]]*}}
+	#What does out line start with
 	case $trim in
 		TRACK*AUDIO)
 			track_num=${trim##TRACK\ }
@@ -53,6 +57,7 @@ while IFS= read -r line || [ -n "$line" ]; do
 			continue;;
 	esac
 done < "$2"
+#With the way cue files are formatted, they dont tell us when to end the last track, so we have to manually determine
 end_time=$(ffprobe -i $1 -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
 ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
 
