@@ -5,12 +5,16 @@ if [ ! -x $(command -v ffmpeg) ]; then
 	exit 1
 fi
 #ensure first param is m4a
-if [ ! -r "$1" ] && [ "$1" != "*.m4a" ]; then 
-	echo "input a path to an m4a file"
+if [ ! -r "$1" ]; then 
+	echo "input a path to a readable file"
+	exit 1
 fi
+audio=$(basename $1)
+ext="${audio##*.}"
 #ensure second param is cue
 if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then 
 	echo "input a path to an cue file"
+	exit 1
 fi
 convert_to_ms() {
 	prefix=$(echo $1 | head -c 5)
@@ -32,12 +36,12 @@ while IFS= read -r line || [ -n "$line" ]; do
 			continue;;
 		INDEX\ 00*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
-			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
 			index=0
 			continue;;
 		INDEX\ 01*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
-			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
 			start_time=$end_time
 			this_track_num=$track_num
 			this_performer=$performer
@@ -50,6 +54,6 @@ while IFS= read -r line || [ -n "$line" ]; do
 	esac
 done < "$2"
 end_time=$(ffprobe -i $1 -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
-ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.m4a"
+ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
 
 
