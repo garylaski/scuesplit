@@ -1,6 +1,9 @@
 # scuesplit
 Simply split audio files with a CUE sheet without re-encoding. Written in POSIX shell.
 
+## Supported Audio formats
+As far as I am aware, this should work with any audio formats that ffmpeg can split. I have confirmed it works with: `wav` `flac` `m4a` `mp3` `aac` `opus`
+
 ## Use
 ```
 scuesplit audio.ext cuefile.cue
@@ -15,8 +18,6 @@ Example output:
 02 - Bodyguard - E-CIG.ext
 ...
 ```
-## Dependency
+## Dependencies
 `ffmpeg`
 
-## Supported Audio formats
-As far as I am aware, this should work with any audio formats that ffmpeg can split. I have confirmed it works with: `wav` `flac` `m4a` `mp3` `aac` `opus`
