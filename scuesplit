@@ -1,22 +1,17 @@
 #!/bin/sh
+
 #Check if ffmpeg is in $PATH and executable
-if [ ! -x $(command -v ffmpeg) ]; then
-	echo "ffmpeg is not installed"
-	exit 1
-fi
+[ -x $(command -v ffmpeg) ] || echo "ffmpeg is not installed" || exit 1
+
 #ensure first param is a readable file
-if [ ! -r "$1" ]; then 
-	echo "input a path to a readable file"
-	exit 1
-fi
-#extract audio file extension 
-audio=$(basename $1)
-ext="${audio##*.}"
+[ -r "$1" ] || echo "input a path to a readable file" || exit 1
+
 #ensure second param is cue
-if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then 
-	echo "input a path to an cue file"
-	exit 1
-fi
+[ -r "$2" ] && [ "$2" == "*.cue" ] || echo "input a path to an cue file" || exit 1
+
+#extract audio file extension 
+ext="${1##*.}"
+
 #since cue files use HH:MM:FF where FF is frames out of 75, conversion to HH:MM.SS that ffmpeg needs
 convert_to_ms() {
 	prefix=$(echo $1 | head -c 5)
