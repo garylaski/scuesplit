@@ -42,12 +42,12 @@ for line in $cue_file; do
 			;;
 		INDEX\ 00*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
-			[ $index -eq 1 ] && ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext" 
+			[ $index -eq 1 ] && ffmpeg -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext" 
 			index=0
 			;;
 		INDEX\ 01*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
-			[ $index -eq 1 ] && ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+			[ $index -eq 1 ] && ffmpeg -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
 			index=0
 			start_time=$end_time
 			this_track_num=$track_num
