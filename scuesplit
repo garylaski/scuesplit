@@ -24,39 +24,47 @@ convert_to_ms() {
 	printf $prefix.$frames
 }
 #Iterate over cue file
-while IFS= read -r line || [ -n "$line" ]; do
+index=0
+cue_file=$(cat $2)
+IFS='
+'
+for line in $cue_file; do
+	printf '%s\n' "$line"
 	#Remove leading whitespace
 	trim=${line#${line%%[![:space:]]*}}
 	#What does out line start with
 	case $trim in
-		TRACK*AUDIO)
+		TRACK*)
 			track_num=${trim##TRACK\ }
 			track_num=${track_num%%AUDIO}
-			continue;;
+			;;
 		TITLE\ *)
 			title=${trim##TITLE\ }
-			continue;;
+			;;
 		INDEX\ 00*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
-			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+			if [ $index -eq 1 ]; then
+				ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext" 
+			fi
 			index=0
-			continue;;
+			;;
 		INDEX\ 01*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
-			[ $index -eq 1 ] && ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+			if [ $index -eq 1 ]; then
+				ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+			fi
+			index=0
 			start_time=$end_time
 			this_track_num=$track_num
 			this_performer=$performer
 			this_title=$title
 			index=1
-			continue;;
+			;;
 		PERFORMER\ *)
 			performer=${trim##PERFORMER\ }
-			continue;;
+			;;
 	esac
-done < "$2"
+done
 #With the way cue files are formatted, they dont tell us when to end the last track, so we have to manually determine
 end_time=$(ffprobe -i $1 -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
-ffmpeg -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
-
-
+ffmpeg -nostats -loglevel 0 -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
