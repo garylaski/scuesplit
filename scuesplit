@@ -1,16 +1,8 @@
 #!/bin/sh
-
-#Check if ffmpeg is in $PATH and executable
-[ ! -x $(command -v ffmpeg) ] && echo "ffmpeg is not installed" && exit 1
-
-#ensure first param is a readable file
-[ ! -r "$1" ] && echo "input a path to a readable file" && exit 1
-
-#ensure second param is cue
-if [ ! -r "$2" ] && [ "$2" != "*.cue" ]; then
-	echo "input a path to an cue file"
-	exit 1
-fi
+[ ! -x $(command -v ffmpeg) ] && echo "Error: ffmpeg is not installed." && exit 1
+[ ! -r "$1" ] && echo "Error: Audio file is not readable." && exit 1
+[ "$2" != "*.cue" ] && "Error: Cue path does not point to a .cue file." && exit 1
+[ ! -r "$2" ] && echo "Error: Cue file is not readable." && exit 1
 
 #extract audio file extension 
 ext="${1##*.}"
@@ -23,6 +15,7 @@ convert_to_ms() {
 	frames=$(($frames * 100 / 75))
 	printf $prefix.$frames
 }
+
 #Iterate over cue file
 index=0
 cue_file=$(cat $2)
