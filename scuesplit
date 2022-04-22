@@ -18,7 +18,7 @@ convert_to_ms() {
 
 #Iterate over cue file
 index=0
-cue_file=$(cat $2)
+cue_file=$(cat "$2")
 IFS='
 '
 for line in $cue_file; do
@@ -54,5 +54,5 @@ for line in $cue_file; do
 	esac
 done
 #With the way cue files are formatted, they dont tell us when to end the last track, so we have to manually determine
-end_time=$(ffprobe -i $1 -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
-ffmpeg -nostats -loglevel 0 -i $1 -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+end_time=$(ffprobe -i "$1" -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
+ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
