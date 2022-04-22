@@ -28,7 +28,7 @@ for line in $cue_file; do
 	case $trim in
 		TRACK*)
 			track_num=${trim##TRACK\ }
-			track_num=${track_num%%AUDIO}
+			track_num=${track_num%%\ AUDIO}
 			;;
 		TITLE\ *)
 			title=${trim##TITLE\ }
