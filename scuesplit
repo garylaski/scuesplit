@@ -36,6 +36,7 @@ for line in $cue_file; do
 		TRACK*)
 			track_num=${trim##TRACK\ }
 			track_num=${track_num%%\ AUDIO}
+			performer=$primary_performer #Reset performer to the main performer
 			;;
 		TITLE\ *)
 			title=$(unquote "${trim##TITLE\ }")
@@ -56,7 +57,14 @@ for line in $cue_file; do
 			index=1
 			;;
 		PERFORMER\ *)
-			performer=${trim##PERFORMER\ }
+			performer=$(unquote "${trim##PERFORMER\ }")
+			#CUE files can have both a primary performer (album
+			#artist), and different track-specific performers. If
+			#we haven't yet had a TRACK line, take the PERFORMER
+			#line as the primary performer.
+			if [ "$track_num" = "" ]; then
+				primary_performer=$performer
+			fi
 			;;
 	esac
 done
