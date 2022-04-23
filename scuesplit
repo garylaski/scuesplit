@@ -16,6 +16,13 @@ convert_to_ms() {
 	printf $prefix.$frames
 }
 
+#Unquote CUE fields that are quoted "like this"
+unquote() {
+	unquoted=${1%\"}
+	unquoted=${unquoted#\"}
+	printf '%s\n' "$unquoted"
+}
+
 #Iterate over cue file
 index=0
 cue_file=$(cat "$2")
@@ -31,7 +38,7 @@ for line in $cue_file; do
 			track_num=${track_num%%\ AUDIO}
 			;;
 		TITLE\ *)
-			title=${trim##TITLE\ }
+			title=$(unquote "${trim##TITLE\ }")
 			;;
 		INDEX\ 00*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
