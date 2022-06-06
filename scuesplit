@@ -1,7 +1,7 @@
 #!/bin/sh
 [ ! -x $(command -v ffmpeg) ] && echo "Error: ffmpeg is not installed." && exit 1
 [ ! -r "$1" ] && echo "Error: Audio file is not readable." && exit 1
-[ "$2" != "*.cue" ] && "Error: Cue path does not point to a .cue file." && exit 1
+[ "${2##*.}" != "cue" ] && echo "Error: Cue path does not point to a .cue file." && exit 1
 [ ! -r "$2" ] && echo "Error: Cue file is not readable." && exit 1
 
 #extract audio file extension 
@@ -16,6 +16,13 @@ convert_to_ms() {
 	printf $prefix.$frames
 }
 
+#Unquote CUE fields that are quoted "like this"
+unquote() {
+	unquoted=${1%\"}
+	unquoted=${unquoted#\"}
+	printf '%s\n' "$unquoted"
+}
+
 #Iterate over cue file
 index=0
 cue_file=$(cat "$2")
@@ -28,10 +35,11 @@ for line in $cue_file; do
 	case $trim in
 		TRACK*)
 			track_num=${trim##TRACK\ }
-			track_num=${track_num%%AUDIO}
+			track_num=${track_num%%\ AUDIO}
+			performer=$primary_performer #Reset performer to the main performer
 			;;
 		TITLE\ *)
-			title=${trim##TITLE\ }
+			title=$(unquote "${trim##TITLE\ }")
 			;;
 		INDEX\ 00*)
 			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
@@ -49,7 +57,14 @@ for line in $cue_file; do
 			index=1
 			;;
 		PERFORMER\ *)
-			performer=${trim##PERFORMER\ }
+			performer=$(unquote "${trim##PERFORMER\ }")
+			#CUE files can have both a primary performer (album
+			#artist), and different track-specific performers. If
+			#we haven't yet had a TRACK line, take the PERFORMER
+			#line as the primary performer.
+			if [ "$track_num" = "" ]; then
+				primary_performer=$performer
+			fi
 			;;
 	esac
 done
