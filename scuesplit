@@ -7,13 +7,18 @@
 #extract audio file extension 
 ext="${1##*.}"
 
-#since cue files use HH:MM:FF where FF is frames out of 75, conversion to HH:MM.SS that ffmpeg needs
+#since cue files use MM:SS:FF where FF is frames out of 75, convert to HH:MM:SS[.m...] that ffmpeg needs
 convert_to_ms() {
 	prefix=$(echo $1 | head -c 5)
-	frames=$(echo $1 | tail -c 3)
+	# If minutes part is over 59, carry that into the hour field
+	minutes_total=$(echo $1 | cut -d: -f1)
+	hours=$(($minutes_total / 60))
+	minutes=$(($minutes_total % 60))
+	seconds=$(echo $1 | cut -d: -f2)
+	frames=$(echo $1 | cut -d: -f3)
 	frames=${frames##0}
 	frames=$(($frames * 100 / 75))
-	printf $prefix.$frames
+	printf '%s:%s:%s.%s' $hours $minutes $seconds $frames
 }
 
 #Unquote CUE fields that are quoted "like this"
