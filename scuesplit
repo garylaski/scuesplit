@@ -1,78 +1,98 @@
 #!/bin/sh
-[ ! -x $(command -v ffmpeg) ] && echo "Error: ffmpeg is not installed." && exit 1
+[ ! -x "$(command -v ffmpeg)" ] && echo "Error: ffmpeg is not installed." && exit 1
 [ ! -r "$1" ] && echo "Error: Audio file is not readable." && exit 1
 [ "${2##*.}" != "cue" ] && echo "Error: Cue path does not point to a .cue file." && exit 1
 [ ! -r "$2" ] && echo "Error: Cue file is not readable." && exit 1
 
-#extract audio file extension 
+# Extract audio file extension 
 ext="${1##*.}"
 
-#since cue files use MM:SS:FF where FF is frames out of 75, convert to HH:MM:SS[.m...] that ffmpeg needs
+# Convert CUE time (MM:SS:FF) to HH:MM:SS.milliseconds
 convert_to_ms() {
-	prefix=$(echo $1 | head -c 5)
-	# If minutes part is over 59, carry that into the hour field
-	minutes_total=$(echo $1 | cut -d: -f1)
-	hours=$(($minutes_total / 60))
-	minutes=$(($minutes_total % 60))
-	seconds=$(echo $1 | cut -d: -f2)
-	frames=$(echo $1 | cut -d: -f3)
-	frames=${frames##0}
-	frames=$(($frames * 100 / 75))
-	printf '%s:%s:%s.%s' $hours $minutes $seconds $frames
+    minutes_total=$(echo $1 | cut -d: -f1)
+    seconds=$(echo $1 | cut -d: -f2)
+    frames=$(echo $1 | cut -d: -f3)
+    
+    # Convert frames to milliseconds (1 frame = 1000/75 ms)
+    frames=${frames##0}
+    milliseconds=$((frames * 1000 / 75))
+    
+    # Format as HH:MM:SS.milliseconds
+    hours=$((minutes_total / 60))
+    minutes=$((minutes_total % 60))
+    printf '%02d:%02d:%02d.%03d' $hours $minutes $seconds $milliseconds
 }
 
-#Unquote CUE fields that are quoted "like this"
+# Sanitize filenames
+sanitize() {
+    echo "$1" | sed 's/[*?|<>:"\/\\]//g'
+}
+
+# Unquote CUE fields
 unquote() {
-	unquoted=${1%\"}
-	unquoted=${unquoted#\"}
-	printf '%s\n' "$unquoted"
+    unquoted=${1%\"}
+    unquoted=${unquoted#\"}
+    printf '%s\n' "$unquoted"
 }
 
-#Iterate over cue file
+# Get total duration in seconds
+total_duration=$(ffprobe -i "$1" -show_entries format=duration -v quiet -of csv="p=0")
+# Convert to HH:MM:SS.mmm
+total_duration_hours=$(( ${total_duration%%.*} / 3600 ))
+remaining_seconds=$(( ${total_duration%%.*} % 3600 ))
+total_duration_minutes=$(( remaining_seconds / 60 ))
+total_duration_seconds=$(( remaining_seconds % 60 ))
+total_duration_ms=$(printf "%.3f" $total_duration | cut -d. -f2 | head -c3)
+total_duration_hms=$(printf '%02d:%02d:%02d.%03d' $total_duration_hours $total_duration_minutes $total_duration_seconds $total_duration_ms)
+
+# Iterate over cue file
 index=0
 cue_file=$(cat "$2")
 IFS='
 '
 for line in $cue_file; do
-	#Remove leading whitespace
-	trim=${line#${line%%[![:space:]]*}}
-	#What does out line start with
-	case $trim in
-		TRACK*)
-			track_num=${trim##TRACK\ }
-			track_num=${track_num%%\ AUDIO}
-			performer=$primary_performer #Reset performer to the main performer
-			;;
-		TITLE\ *)
-			title=$(unquote "${trim##TITLE\ }")
-			;;
-		INDEX\ 00*)
-			end_time=$(convert_to_ms ${trim##INDEX\ 00\ })
-			[ $index -eq 1 ] && ffmpeg -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext" 
-			index=0
-			;;
-		INDEX\ 01*)
-			end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
-			[ $index -eq 1 ] && ffmpeg -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
-			index=0
-			start_time=$end_time
-			this_track_num=$track_num
-			this_performer=$performer
-			this_title=$title
-			index=1
-			;;
-		PERFORMER\ *)
-			performer=$(unquote "${trim##PERFORMER\ }")
-			#CUE files can have both a primary performer (album
-			#artist), and different track-specific performers. If
-			#we haven't yet had a TRACK line, take the PERFORMER
-			#line as the primary performer.
-			if [ "$track_num" = "" ]; then
-				primary_performer=$performer
-			fi
-			;;
-	esac
+    # Remove leading whitespace
+    trim=${line#${line%%[![:space:]]*}}
+    
+    case $trim in
+        TRACK*)
+            track_num=${trim##TRACK\ }
+            track_num=${track_num%%\ AUDIO}
+            performer=$primary_performer
+            ;;
+        TITLE\ *)
+            title=$(unquote "${trim##TITLE\ }")
+            ;;
+        INDEX\ 01*)
+            # If we have a pending track, process it first
+            if [ $index -eq 1 ]; then
+                end_time=$(convert_to_ms ${trim##INDEX\ 01\ })
+                safe_title=$(sanitize "$this_title")
+                safe_performer=$(sanitize "$this_performer")
+                filename="${this_track_num} - ${safe_performer} - ${safe_title}.${ext}"
+                echo "Processing track: $this_track_num"
+                echo "Start time: $start_time, End time: $end_time, Performer: $this_performer, Title: $this_title"
+                ffmpeg -i "$1" -vn -acodec copy -ss "$start_time" -to "$end_time" "$filename"
+            fi
+            start_time=$(convert_to_ms ${trim##INDEX\ 01\ })
+            this_track_num=$track_num
+            this_performer=$performer
+            this_title=$title
+            index=1
+            ;;
+        PERFORMER\ *)
+            performer=$(unquote "${trim##PERFORMER\ }")
+            [ -z "$track_num" ] && primary_performer=$performer
+            ;;
+    esac
 done
-#With the way cue files are formatted, they dont tell us when to end the last track, so we have to manually determine
-end_time=$(ffprobe -i "$1" -show_entries format=duration -v quiet -of csv="p=0" -sexagesimal)
-ffmpeg -nostats -loglevel 0 -i "$1" -acodec copy -ss $start_time -to $end_time "$this_track_num - $this_performer - $this_title.$ext"
+
+# Process the last track
+if [ $index -eq 1 ]; then
+    safe_title=$(sanitize "$this_title")
+    safe_performer=$(sanitize "$this_performer")
+    filename="${this_track_num} - ${safe_performer} - ${safe_title}.${ext}"
+    echo "Processing last track: $this_track_num"
+    echo "Start time: $start_time, End time: $total_duration_hms, Performer: $this_performer, Title: $this_title"
+    ffmpeg -i "$1" -vn -acodec copy -ss "$start_time" -to "$total_duration_hms" "$filename"
+fi
